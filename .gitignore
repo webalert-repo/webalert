@@ -1,0 +1,8 @@
+./env
+.DS_Store
+url.txt
+venv
+env/aws
+urls.json
+node_modules
+.serverless

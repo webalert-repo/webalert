@@ -1,0 +1,86 @@
+service: python-web-alert
+provider:
+  name: aws
+  runtime: python2.7
+  versionFunctions: false
+  region: us-west-2
+  bucket: ${env:AWS_NAMESPACE}
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "s3:ListBucket"
+      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "S3Bucket" } ] ]  }
+    - Effect: "Allow"
+      Action:
+        - "s3:PutObject"
+        - "s3:GetObject"
+      Resource:
+        Fn::Join:
+          - ""
+          - - "arn:aws:s3:::"
+            - "Ref" : "S3Bucket"
+            - "/*"  
+    - Effect: Allow
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:UpdateItem
+        - dynamodb:Scan
+      Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+
+  environment:
+      DYNAMODB_TABLE: ${env:AWS_NAMESPACE}
+      REGION: ${env:AWS_DEFAULT_REGION}
+      S3_BUCKET: ${env:AWS_NAMESPACE}
+
+functions:
+  crawl:
+    handler: handler.crawl
+    events:
+      - schedule: rate(1 hour)
+  list:
+    handler: handler.list
+    events:    
+      - http:
+            path: list
+            method: get
+resources:
+  Resources:
+    DynamoDB:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: page_name
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: page_name
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.bucket}
+        AccessControl: PublicRead
+    S3BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket:
+          Ref: S3Bucket
+        PolicyDocument:
+          Statement:
+            - Sid: PublicReadGetObject
+              Effect: Allow
+              Principal: "*"
+              Action:
+              - s3:GetObject
+              Resource: arn:aws:s3:::${self:provider.bucket}/*
+plugins:
+  - serverless-python-requirements
+custom:
+  pythonRequirements:
+    dockerizePip: true
