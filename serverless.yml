@@ -37,7 +37,7 @@ functions:
   crawl:
     handler: handler.crawl
     events:
-      - schedule: rate(1 hour)
+      - rate(15 minutes)
   list:
     handler: handler.list
     events:    
